@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>attr</title>
+    <link rel="stylesheet" href="">
+    <script src="./zepto.js"></script>
+</head>
+
+<style>
+*{
+	margin: 0;
+	padding: 0;
+}
+html{
+	/*height: 800px;*/
+	/*overflow: scroll;*/
+}
+body{
+	height: 2000px;
+	/*overflow: scroll;*/
+}
+	.con{
+		border: 1px solid;
+		height: 300px;
+		overflow: scroll;
+	}
+	.sub{
+	  margin: 10px 10px 500px 10px;
+	  height: 100px;
+	  background: red;
+	}
+</style>
+<body>
+	<div class="con">
+		 <div class="sub"></div>
+	</div>
+    <script>
+    	var $sub=$(".sub");
+
+    	$("div").on("click",function(){
+    		debugger;
+    		console.log($sub.offset({top:100,left:100}));
+    	})
+    </script>
+</body>
+</html>

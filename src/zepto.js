@@ -54,10 +54,12 @@ var Zepto = (function() {
                             element.mozMatchesSelector || element.oMatchesSelector ||
                             element.matchesSelector
       if (matchesSelector) return matchesSelector.call(element, selector)
+      // 原生Element.matches(selector)方法: 通过selector能查找到元素则返回true
+
       // fall back to performing a selector:
       var match, parent = element.parentNode, temp = !parent
       if (temp) (parent = tempParent).appendChild(element)
-      match = ~zepto.qsa(parent, selector).indexOf(element)
+      match = ~zepto.qsa(parent, selector).indexOf(element)   //   ~-1===0
       temp && tempParent.removeChild(element)
       return match
     }
@@ -289,8 +291,8 @@ var Zepto = (function() {
           if (node === parent) return true
         return false
       }
-  
-    function funcArg(context, arg, idx, payload) {
+    // 当args传入函数时,指定this的执向. 装饰者模式：仅仅在原先基础上添加了对this指向的修改
+    function funcArg(context, arg, idx, payload) {   
       return isFunction(arg) ? arg.call(context, idx, payload) : arg
     }
   
@@ -355,6 +357,8 @@ var Zepto = (function() {
   
     $.camelCase = camelize
     $.trim = function(str) {
+      // null == undefined        
+      // 如果str为null和undefined, String.prototype.trim.call(str)会报错
       return str == null ? "" : String.prototype.trim.call(str)
     }
   
@@ -378,7 +382,9 @@ var Zepto = (function() {
         }
       return flatten(values)
     }
-  
+    
+    // 注意: each回调函数参数为(key,val),返回false会终止
+    // 原生forEach中回调函数参数为(val,key),返回值不影响循环
     $.each = function(elements, callback){
       var i, key
       if (likeArray(elements)) {
@@ -451,10 +457,10 @@ var Zepto = (function() {
         }
         return this
       },
-      get: function(idx){
+      get: function(idx){           // 处理idx为无值和负数的情况
         return idx === undefined ? slice.call(this) : this[idx >= 0 ? idx : idx + this.length]
       },
-      toArray: function(){ return this.get() },
+      toArray: function(){ return this.get() },  //调用slice.call(this)
       size: function(){
         return this.length
       },
@@ -466,7 +472,7 @@ var Zepto = (function() {
       },
       each: function(callback){
         emptyArray.every.call(this, function(el, idx){
-          return callback.call(el, idx, el) !== false
+          return callback.call(el, idx, el) !== false   //调用原生Array.every,循环时如果一次执行结果返回false就中断循环
         })
         return this
       },
@@ -573,7 +579,9 @@ var Zepto = (function() {
       },
       show: function(){
         return this.each(function(){
+          // 内联style的优先级比样式表中的要高。如果this.style.display为"none",将style.display值设为空,来采用css样式表中设置的display值
           this.style.display == "none" && (this.style.display = '')
+          // 如果样式表中display值为none,则根据当前元素的nodeName来是设置display值(eg: nodeName=="Div"是块级元素,设置display为"block")
           if (getComputedStyle(this, '').getPropertyValue("display") == "none")
             this.style.display = defaultDisplay(this.nodeName)
         })
@@ -646,25 +654,30 @@ var Zepto = (function() {
             var newText = funcArg(this, text, idx, this.textContent)
             this.textContent = newText == null ? '' : ''+newText
           }) :
-          (0 in this ? this.pluck('textContent').join("") : null)
+          (0 in this ? this.pluck('textContent').join("") : null)  // 将所有元素的textContent值拼接起来
       },
       attr: function(name, value){
         var result
-        return (typeof name == 'string' && !(1 in arguments)) ?
+        return (typeof name == 'string' && !(1 in arguments)) ?   // 只传入一个值(字符串)? 取值:赋值
+          // 取值: this存在并且为Element类, 则使用getAttribute取值.取值结果为null则返回undefined
           (0 in this && this[0].nodeType == 1 && (result = this[0].getAttribute(name)) != null ? result : undefined) :
+
+          // 赋值: 
           this.each(function(idx){
             if (this.nodeType !== 1) return
-            if (isObject(name)) for (key in name) setAttribute(this, key, name[key])
-            else setAttribute(this, name, funcArg(this, value, idx, this.getAttribute(name)))
+            if (isObject(name)) for (key in name) setAttribute(this, key, name[key])   // name为对象则进行循环赋值
+            else setAttribute(this, name, funcArg(this, value, idx, this.getAttribute(name)))  // 如果value为函数则将函数的执行结果 进行赋值,不是函数就直接赋值
           })
       },
       removeAttr: function(name){
+        // 支持removeAttr("key1 key2")空格分隔的形式
         return this.each(function(){ this.nodeType === 1 && name.split(' ').forEach(function(attribute){
           setAttribute(this, attribute)
         }, this)})
       },
       prop: function(name, value){
-        name = propMap[name] || name
+        name = propMap[name] || name    //处理一些特殊属性的值 eg: name='class'时 需要this.className进行设置
+        // 逻辑跟attr一致,只是将设值部分由 setAttribute改为 this[key]
         return (typeof name == 'string' && !(1 in arguments)) ?
           (this[0] && this[0][name]) :
           this.each(function(idx){
@@ -677,56 +690,70 @@ var Zepto = (function() {
         return this.each(function(){ delete this[name] })
       },
       data: function(name, value){
+        // 由于html属性不区分大小写, zepto对大写的属性做了处理。大写字母前面会加上'-'
         var attrName = 'data-' + name.replace(capitalRE, '-$1').toLowerCase()
   
         var data = (1 in arguments) ?
           this.attr(attrName, value) :
           this.attr(attrName)
-  
+        // zepto这里对data会做处理,但我觉得没有必要啊
+        // 我设置age属性的时候为字符串"24" data("age","24") 
+        // data("age")时就变成数字24了 
+        // ps：checked,disabled等特殊的html属性值只能设置为Boolean,其他属性都只能设置为字符串
         return data !== null ? deserializeValue(data) : undefined
       },
       val: function(value){
-        if (0 in arguments) {
-          if (value == null) value = ""
+        if (0 in arguments) {              // 有值就进行赋值操作
+          if (value == null) value = ""    // 如果value为null或者undefined,就设置为空字符串
           return this.each(function(idx){
             this.value = funcArg(this, value, idx, this.value)
           })
-        } else {
+        } else {      
+        // 取值时如果设置了multiple=true(说明是多选框),那就将选中的option的value放入数组中返回
           return this[0] && (this[0].multiple ?
              $(this[0]).find('option').filter(function(){ return this.selected }).pluck('value') :
              this[0].value)
         }
       },
-      offset: function(coordinates){
-        if (coordinates) return this.each(function(index){
+      // 返回当前元素相对于整个文档的位置
+      offset: function(coordinates){   
+         // coordinates 为有top和left键值的对象,或者为函数(执行后返回一个有top和left键值的对象)
+        if (coordinates) return this.each(function(index){   
           var $this = $(this),
               coords = funcArg(this, coordinates, index, $this.offset()),
-              parentOffset = $this.offsetParent().offset(),
-              props = {
+              parentOffset = $this.offsetParent().offset(),   // 获取离当前元素最近的定位过的祖先元素的位置
+               // 根据coordinates设置当前元素在文档中的位置
+               // 举个栗子： 
+               // 我想设置元素A在页面{top:100,left:200}位置显示 =>  执行offset({top:0,left:0})
+               // 元素A的定位父级在页面中的位置为 {top:200,left:200}
+               // 通过设置元素A {top:100-200,left:100-200} 即可
+              props = {            
                 top:  coords.top  - parentOffset.top,
                 left: coords.left - parentOffset.left
               }
   
-          if ($this.css('position') == 'static') props['position'] = 'relative'
+          if ($this.css('position') == 'static') props['position'] = 'relative'   // 如果当前元素不是定位,则设置定位
           $this.css(props)
         })
         if (!this.length) return null
         if (document.documentElement !== this[0] && !$.contains(document.documentElement, this[0]))
-          return {top: 0, left: 0}
-        var obj = this[0].getBoundingClientRect()
-        return {
-          left: obj.left + window.pageXOffset,
+          return {top: 0, left: 0}      // 不是document.documentElment并且不包含在document.documentElment中,
+        var obj = this[0].getBoundingClientRect()   // 返回元素的大小及其相对于视口的位置
+        return {    
+          // 视口为页面中的显示区域  文档为整个页面
+          // 元素相对视口的位置 + 视口相对文档的位置(视口在文档中可以滚动) 即为元素在文档中的位置
+          left: obj.left + window.pageXOffset,     // ps: window.pageXoffset === window.scrollX
           top: obj.top + window.pageYOffset,
           width: Math.round(obj.width),
           height: Math.round(obj.height)
         }
       },
       css: function(property, value){
-        if (arguments.length < 2) {
+        if (arguments.length < 2) {  // 只有一个参数 进行取值操作
           var element = this[0]
           if (typeof property == 'string') {
-            if (!element) return
-            return element.style[camelize(property)] || getComputedStyle(element, '').getPropertyValue(property)
+            if (!element) return         
+            return element.style[camelize(property)] || getComputedStyle(element, '').getPropertyValue(property)   // 感觉可以省略为 return getComputedStyle(element, '').getPropertyValue(property)  question: 为了性能加了element.style[camelize(property)]的判断?
           } else if (isArray(property)) {
             if (!element) return
             var props = {}
@@ -737,24 +764,27 @@ var Zepto = (function() {
             return props
           }
         }
-  
+        // 赋值操作
         var css = ''
         if (type(property) == 'string') {
-          if (!value && value !== 0)
+          if (!value && value !== 0)   // value为不为0的假值,则调用原生 removeProperty从style中删除
             this.each(function(){ this.style.removeProperty(dasherize(property)) })
-          else
+          else    // value为0,则根据property判断是否需要添加"px"
             css = dasherize(property) + ":" + maybeAddPx(property, value)
         } else {
-          for (key in property)
+          for (key in property)   // 逻辑同上,遍历对象设置css
             if (!property[key] && property[key] !== 0)
               this.each(function(){ this.style.removeProperty(dasherize(key)) })
             else
               css += dasherize(key) + ':' + maybeAddPx(key, property[key]) + ';'
         }
-  
-        return this.each(function(){ this.style.cssText += ';' + css })
+        // 通过style.cssText设置css
+        // eg: style.cssText="font-size:14px;color:red;"   cssText中css属性必须为标准命名,不能采用驼峰命名
+        return this.each(function(){ this.style.cssText += ';' + css })    
       },
-      index: function(element){
+      index: function(element){   
+        // 存在element,在当前集合中查找element的位置
+        // 不存在, 查找当前元素在父级中的位置
         return element ? this.indexOf($(element)[0]) : this.parent().children().indexOf(this[0])
       },
       hasClass: function(name){
