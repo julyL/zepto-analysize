@@ -46,9 +46,9 @@ var Zepto = (function() {
         'contenteditable': 'contentEditable'
       },
       isArray = Array.isArray ||
-        function(object){ return object instanceof Array }
+        function(object){ return object instanceof Array }  // 采用instanceof判断会存在一个问题: 当页面中存在iframe时,iframe外部的array传到iframe内部,在iframe中array instanceof Array 会返回false 。因为iframe内部和外部的window对象不同, window.Array自然也就不同。array是iframe外部Array的实例而非内部Array的实例 
   
-    zepto.matches = function(element, selector) {
+    zepto.matches = function(element, selector) {   // 在element的父级中查找selector,返回查找到的位置(没找到则返回0)
       if (!selector || !element || element.nodeType !== 1) return false
       var matchesSelector = element.matches || element.webkitMatchesSelector ||
                             element.mozMatchesSelector || element.oMatchesSelector ||
@@ -58,9 +58,9 @@ var Zepto = (function() {
 
       // fall back to performing a selector:
       var match, parent = element.parentNode, temp = !parent
-      if (temp) (parent = tempParent).appendChild(element)
+      if (temp) (parent = tempParent).appendChild(element)    // 如果element没有父级,则用一个空的div模拟父级
       match = ~zepto.qsa(parent, selector).indexOf(element)   //   ~-1===0
-      temp && tempParent.removeChild(element)
+      temp && tempParent.removeChild(element)                 //  清理工作
       return match
     }
   
@@ -90,8 +90,8 @@ var Zepto = (function() {
     function compact(array) { return filter.call(array, function(item){ return item != null }) }
     function flatten(array) { return array.length > 0 ? $.fn.concat.apply([], array) : array }
     camelize = function(str){ return str.replace(/-+(.)?/g, function(match, chr){ return chr ? chr.toUpperCase() : '' }) }
-    function dasherize(str) {
-      return str.replace(/::/g, '/')
+    function dasherize(str) {    // ?
+      return str.replace(/::/g, '/')      
              .replace(/([A-Z]+)([A-Z][a-z])/g, '$1_$2')
              .replace(/([a-z\d])([A-Z])/g, '$1_$2')
              .replace(/_/g, '-')
@@ -99,12 +99,12 @@ var Zepto = (function() {
     }
     uniq = function(array){ return filter.call(array, function(item, idx){ return array.indexOf(item) == idx }) }
   
-    function classRE(name) {
+    function classRE(name) {    
       return name in classCache ?
-        classCache[name] : (classCache[name] = new RegExp('(^|\\s)' + name + '(\\s|$)'))
+        classCache[name] : (classCache[name] = new RegExp('(^|\\s)' + name + '(\\s|$)'))  // 匹配一个单词含空格 不同于/\bname(\s|$)/
     }
   
-    function maybeAddPx(name, value) {
+    function maybeAddPx(name, value) {    // 根据name判断是否需要添加 后缀"px"
       return (typeof value == "number" && !cssNumber[dasherize(name)]) ? value + "px" : value
     }
   
@@ -266,15 +266,15 @@ var Zepto = (function() {
           maybeID = selector[0] == '#',
           maybeClass = !maybeID && selector[0] == '.',
           nameOnly = maybeID || maybeClass ? selector.slice(1) : selector, // Ensure that a 1 char tag name still gets checked
-          isSimple = simpleSelectorRE.test(nameOnly)
+          isSimple = simpleSelectorRE.test(nameOnly)           //  只要不匹配/^[\w-]*$/就交给querySelectorAll解决,省事...
       return (element.getElementById && isSimple && maybeID) ? // Safari DocumentFragment doesn't have getElementById
-        ( (found = element.getElementById(nameOnly)) ? [found] : [] ) :
-        (element.nodeType !== 1 && element.nodeType !== 9 && element.nodeType !== 11) ? [] :
+        ( (found = element.getElementById(nameOnly)) ? [found] : [] ) :      // id 选择器
+        (element.nodeType !== 1 && element.nodeType !== 9 && element.nodeType !== 11) ? [] :    // 不是Element, Document, DocumentFragment 则直接返回
         slice.call(
           isSimple && !maybeID && element.getElementsByClassName ? // DocumentFragment doesn't have getElementsByClassName/TagName
-            maybeClass ? element.getElementsByClassName(nameOnly) : // If it's simple, it could be a class
-            element.getElementsByTagName(selector) : // Or a tag
-            element.querySelectorAll(selector) // Or it's not simple, and we need to query all
+            maybeClass ? element.getElementsByClassName(nameOnly) : //  class选择器
+            element.getElementsByTagName(selector) : // 标签选择器
+            element.querySelectorAll(selector) // Or it's not simple, and we need to query all 
         )
     }
   
@@ -367,20 +367,20 @@ var Zepto = (function() {
     $.support = { }
     $.expr = { }
     $.noop = function() {}
-  
+    
     $.map = function(elements, callback){
       var value, values = [], i, key
       if (likeArray(elements))
         for (i = 0; i < elements.length; i++) {
-          value = callback(elements[i], i)
-          if (value != null) values.push(value)
+          value = callback(elements[i], i)          // 调用方式callback(key,val) (没有处理this,callback内部this指向丢失)
+          if (value != null) values.push(value)     // 过滤null和undefiend
         }
       else
         for (key in elements) {
           value = callback(elements[key], key)
           if (value != null) values.push(value)
         }
-      return flatten(values)
+      return flatten(values)                      //
     }
     
     // 注意: each回调函数参数为(key,val),返回false会终止
@@ -398,7 +398,7 @@ var Zepto = (function() {
       return elements
     }
   
-    $.grep = function(elements, callback){
+    $.grep = function(elements, callback){      // 根据callback执行结果从elements中过滤假值
       return filter.call(elements, callback)
     }
   
@@ -427,9 +427,9 @@ var Zepto = (function() {
         var i, value, args = []
         for (i = 0; i < arguments.length; i++) {
           value = arguments[i]
-          args[i] = zepto.isZ(value) ? value.toArray() : value
+          args[i] = zepto.isZ(value) ? value.toArray() : value    // 如果是zepto对象(类数组) 则转换为数组
         }
-        return concat.apply(zepto.isZ(this) ? this.toArray() : this, args)
+        return concat.apply(zepto.isZ(this) ? this.toArray() : this, args)   // 将zepto对象(dom元素集合) 转换为数组 并返回Array.concat之后的数组
       },
   
       // `map` and `slice` in the jQuery API work differently
@@ -460,7 +460,7 @@ var Zepto = (function() {
       get: function(idx){           // 处理idx为无值和负数的情况
         return idx === undefined ? slice.call(this) : this[idx >= 0 ? idx : idx + this.length]
       },
-      toArray: function(){ return this.get() },  //调用slice.call(this)
+      toArray: function(){ return this.get() },  // 调用slice.call(this) 将元素集合转换为数组
       size: function(){
         return this.length
       },
@@ -574,7 +574,7 @@ var Zepto = (function() {
         return this.each(function(){ this.innerHTML = '' })
       },
       // `pluck` is borrowed from Prototype.js
-      pluck: function(property){
+      pluck: function(property){      // 遍历当前集合将获取到的property放入数组中返回(会过滤null和undefined)
         return $.map(this, function(el){ return el[property] })
       },
       show: function(){
@@ -849,8 +849,8 @@ var Zepto = (function() {
           // Get *real* offsetParent
           offsetParent = this.offsetParent(),
           // Get correct offsets
-          offset       = this.offset(),
-          parentOffset = rootNodeRE.test(offsetParent[0].nodeName) ? { top: 0, left: 0 } : offsetParent.offset()
+          offset       = this.offset(),  // 当前元素在页面中的位置
+          parentOffset = rootNodeRE.test(offsetParent[0].nodeName) ? { top: 0, left: 0 } : offsetParent.offset()    // 定位父级的位置
   
         // Subtract element margins
         // note: when an element has margin: auto the offsetLeft and marginLeft
@@ -863,14 +863,17 @@ var Zepto = (function() {
         parentOffset.left += parseFloat( $(offsetParent[0]).css('border-left-width') ) || 0
   
         // Subtract the two offsets
+        // 以left的值为例：当前元素左边框到定位父级的左边框的距离 - 定位父级的左边框宽度 - 当前元素的marginLeft 
         return {
           top:  offset.top  - parentOffset.top,
           left: offset.left - parentOffset.left
         }
       },
       offsetParent: function() {
+        // MDN中的定义: HTMLElement.offsetParent 是一个只读属性，返回一个指向最近的（closest，指包含层级上的最近）包含该元素的定位元素。如果没有定位的元素，则 offsetParent 为最近的 table, table cell 或根元素（标准模式下为 html；quirks 模式下为 body）。当元素的 style.display 设置为 "none" 时，offsetParent 返回 null。offsetParent 很有用，因为 offsetTop 和 offsetLeft 都是相对于其内边距边界的。
         return this.map(function(){
           var parent = this.offsetParent || document.body
+          // 原生offsetParent获取的不一定是定位的元素, 而zepto的offsetParent一定会返回最近的定位过的父级 or document.body
           while (parent && !rootNodeRE.test(parent.nodeName) && $(parent).css("position") == "static")
             parent = parent.offsetParent
           return parent
