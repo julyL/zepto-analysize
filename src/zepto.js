@@ -303,10 +303,10 @@ var Zepto = (function() {
     // access className property while respecting SVGAnimatedString
     function className(node, value){
       var klass = node.className || '',
-          svg   = klass && klass.baseVal !== undefined
+          svg   = klass && klass.baseVal !== undefined  // 是否为SVG
   
-      if (value === undefined) return svg ? klass.baseVal : klass
-      svg ? (klass.baseVal = value) : (node.className = value)
+      if (value === undefined) return svg ? klass.baseVal : klass   // 取值
+      svg ? (klass.baseVal = value) : (node.className = value)      // 赋值
     }
   
     // "true"  => true
@@ -789,6 +789,8 @@ var Zepto = (function() {
       },
       hasClass: function(name){
         if (!name) return false
+        // 调用原生some时的this为当前元素集合
+        // some内部的this为 classRE(name)
         return emptyArray.some.call(this, function(el){
           return this.test(className(el))
         }, classRE(name))
@@ -798,22 +800,23 @@ var Zepto = (function() {
         return this.each(function(idx){
           if (!('className' in this)) return
           classList = []
+          // cls: 原先的className  newName: 需要添加的className
           var cls = className(this), newName = funcArg(this, name, idx, cls)
-          newName.split(/\s+/g).forEach(function(klass){
+          newName.split(/\s+/g).forEach(function(klass){   // 需要添加的className以空格为分隔符依次添加到中classList中
             if (!$(this).hasClass(klass)) classList.push(klass)
           }, this)
-          classList.length && className(this, cls + (cls ? " " : "") + classList.join(" "))
+          classList.length && className(this, cls + (cls ? " " : "") + classList.join(" "))  // 设置className
         })
       },
       removeClass: function(name){
         return this.each(function(idx){
           if (!('className' in this)) return
-          if (name === undefined) return className(this, '')
+          if (name === undefined) return className(this, '')   // 删除全部className
           classList = className(this)
           funcArg(this, name, idx, classList).split(/\s+/g).forEach(function(klass){
-            classList = classList.replace(classRE(klass), " ")
+            classList = classList.replace(classRE(klass), " ")   // 将匹配的className去掉
           })
-          className(this, classList.trim())
+          className(this, classList.trim())   // 去掉两边多余的空格
         })
       },
       toggleClass: function(name, when){
@@ -821,6 +824,8 @@ var Zepto = (function() {
         return this.each(function(idx){
           var $this = $(this), names = funcArg(this, name, idx, className(this))
           names.split(/\s+/g).forEach(function(klass){
+            // (name)  没有class? add:remove
+            // (name,when)  when? add:remove
             (when === undefined ? !$this.hasClass(klass) : when) ?
               $this.addClass(klass) : $this.removeClass(klass)
           })
@@ -829,10 +834,12 @@ var Zepto = (function() {
       scrollTop: function(value){
         if (!this.length) return
         var hasScrollTop = 'scrollTop' in this[0]
+        // window没有scrllTop属性通过pageYOffset表示滚动距离, window.pageYOffset == document.documentElement.scrollTop
         if (value === undefined) return hasScrollTop ? this[0].scrollTop : this[0].pageYOffset
+        // 有scrollTop属性则直接对scrollTop属性赋值即可,没有scrollTop属性说明this为window,可调用window.scrollTo(水平滚动,垂直滚动)
         return this.each(hasScrollTop ?
           function(){ this.scrollTop = value } :
-          function(){ this.scrollTo(this.scrollX, value) })
+          function(){ this.scrollTo(this.scrollX, value) })  //  window.pageYOffset == window.scrollY
       },
       scrollLeft: function(value){
         if (!this.length) return
