@@ -30,41 +30,63 @@
     })
   }
   function parse(event) {
-    var parts = ('' + event).split('.')
-    return {e: parts[0], ns: parts.slice(1).sort().join(' ')}
+    var parts = ('' + event).split('.')     // "click.namespace1.namespace2"
+    return {e: parts[0], ns: parts.slice(1).sort().join(' ')}   
+    /*
+      {
+        e: "click",  事件名
+        ns: ["namespace1","namespace2"]  排序后的命名空间数组
+      }
+    */
   }
   function matcherFor(ns) {
     return new RegExp('(?:^| )' + ns.replace(' ', ' .* ?') + '(?: |$)')
   }
 
   function eventCapture(handler, captureSetting) {
-    return handler.del &&
-      (!focusinSupported && (handler.e in focus)) ||
+    return handler.del &&                   // 事件委托
+      (!focusinSupported && (handler.e in focus)) ||    // focus事件不支持冒泡, 需要返回true
       !!captureSetting
   }
 
-  function realEvent(type) {
+  function realEvent(type) {    // 返回事件名
+    // 对mouseenter、mouseleave和 blur、focus 特殊处理
     return hover[type] || (focusinSupported && focus[type]) || type
   }
-
+  /*
+   handlers = [
+      1:  [handler1,handler2...],   // handers的key由element决定,同一个element所绑定的所有事件都会放在一个数组里面   
+      2:  [handler...]
+   ]
+   handle={
+     del: 委托的事件,
+     e: 事件名,
+     fn: 绑定的事件,
+     i: 当前handle在element所有绑定的事件数组中的位置,
+     ns: 命名空间,
+     proxy: 实际用进行addEventListener绑定时handle,
+     sel: 进行筛选的选择器
+   }
+  
+  */
   function add(element, events, fn, data, selector, delegator, capture){
-    var id = zid(element), set = (handlers[id] || (handlers[id] = []))
-    events.split(/\s/).forEach(function(event){
+    var id = zid(element), set = (handlers[id] || (handlers[id] = []))   // 同一个element的所绑定的事件都会放在同一个数组
+    events.split(/\s/).forEach(function(event){     // 支持"click keydown"同时绑定多个事件
       if (event == 'ready') return $(document).ready(fn)
-      var handler   = parse(event)
-      handler.fn    = fn
-      handler.sel   = selector
+      var handler   = parse(event)  // 解析出事件名和命名空间
+      handler.fn    = fn            // 绑定的事件
+      handler.sel   = selector      // 进行事件委托的对象
       // emulate mouseenter, mouseleave
-      if (handler.e in hover) fn = function(e){
+      if (handler.e in hover) fn = function(e){   // 绑定mouseenter mouseleave事件时的处理
         var related = e.relatedTarget
         if (!related || (related !== this && !$.contains(this, related)))
           return handler.fn.apply(this, arguments)
       }
-      handler.del   = delegator
+      handler.del   = delegator           // 事件委托触发的事件
       var callback  = delegator || fn
-      handler.proxy = function(e){
-        e = compatible(e)
-        if (e.isImmediatePropagationStopped()) return
+      handler.proxy = function(e){        // 对绑定事件的事件进行了代理
+        e = compatible(e)                 // 对原生event对象进行了扩展,使其支持isDefaultPrevented等方法
+        if (e.isImmediatePropagationStopped()) return  // 
         e.data = data
         var result = callback.apply(element, e._args == undefined ? [e] : [e].concat(e._args))
         if (result === false) e.preventDefault(), e.stopPropagation()
@@ -72,8 +94,9 @@
       }
       handler.i = set.length
       set.push(handler)
-      if ('addEventListener' in element)
-        element.addEventListener(realEvent(handler.e), handler.proxy, eventCapture(handler, capture))
+      if ("addEventListener" in element) 
+        // zepto对addEventListener的3个参数都做了处理
+        element.addEventListener(realEvent(handler.e), handler.proxy, eventCapture(handler, capture));  
     })
   }
   function remove(element, events, fn, selector, capture){
@@ -125,34 +148,41 @@
         stopImmediatePropagation: 'isImmediatePropagationStopped',
         stopPropagation: 'isPropagationStopped'
       }
-
-  function compatible(event, source) {
-    if (source || !event.isDefaultPrevented) {
+  
+  
+  function compatible(event, source) { 
+    if (source || !event.isDefaultPrevented) {  // 没有阻止默认行为
       source || (source = event)
 
+      // 扩展event对象,添加isDefaultPrevented、isImmediatePropagationStopped、isPropagationStopped 3个方法
+      // 分别用于标志eventMethods的key值对应的方法是否执行过
+      
+      // 为了方便说明,以preventDefalut为例  即name="preventDefault" predicate="isDefaultPrevented"
       $.each(eventMethods, function(name, predicate) {
-        var sourceMethod = source[name]
-        event[name] = function(){
-          this[predicate] = returnTrue
-          return sourceMethod && sourceMethod.apply(source, arguments)
+        var sourceMethod = source[name]     // 存储原生preventDefalut方法
+        event[name] = function(){           // 重写了preventDefalut方法 (进行了代理)
+          this[predicate] = returnTrue      // preventDefalut方法被调用之后, isDefaultPrevented被设置为true
+          return sourceMethod && sourceMethod.apply(source, arguments)  // 调用原生preventDefalut方法
         }
-        event[predicate] = returnFalse
+        event[predicate] = returnFalse      // 设置prevent
       })
 
       try {
-        event.timeStamp || (event.timeStamp = Date.now())
+        event.timeStamp || (event.timeStamp = Date.now())    // 添加timeStamp属性表示 事件执行时的时间戳
       } catch (ignored) { }
 
-      if (source.defaultPrevented !== undefined ? source.defaultPrevented :
-          'returnValue' in source ? source.returnValue === false :
-          source.getPreventDefault && source.getPreventDefault())
+      
+      // 下面是一些兼容代码,用一些原生方法检测如果event.preventDefalut已经执行则设置isDefaultPrevented为true
+      if (source.defaultPrevented !== undefined ? source.defaultPrevented :  // // event.defalutPrevented为event原生属性,表示event.preventDefalut是否执行过了 (IE>8)
+          'returnValue' in source ? source.returnValue === false :     // returnValue默认为true, 为false说明event.preventDefalut已经执行 (不推荐使用)
+          source.getPreventDefault && source.getPreventDefault())      // event.getPreventDefault()为true表示event.preventDefalut已经执行(不推荐使用)
         event.isDefaultPrevented = returnTrue
     }
     return event
   }
 
   function createProxy(event) {
-    var key, proxy = { originalEvent: event }
+    var key, proxy = { originalEvent: event }   // 在originalEvent属性中存储原生的event对象
     for (key in event)
       if (!ignoreProperties.test(key) && event[key] !== undefined) proxy[key] = event[key]
 
@@ -196,11 +226,13 @@
         remove(element, e.type, callback)
         return callback.apply(this, arguments)
       }
-
-      if (selector) delegator = function(e){
-        var evt, match = $(e.target).closest(selector, element).get(0)
+      // 事件委托: 将子节点的事件委托给父节点处理。当父节点触发事件时,父节点会根据e.target找到事件相应的处理函数(触发相应的子节点绑定的事件)       
+      if (selector) delegator = function(e){ 
+        var evt, match = $(e.target).closest(selector, element).get(0)    // 从e.target向上查找selector元素(必须是当前element的子节点) 也就是进行事件委托的元素
         if (match && match !== element) {
-          evt = $.extend(createProxy(e), {currentTarget: match, liveFired: element})
+          evt = $.extend(createProxy(e), {currentTarget: match, liveFired: element})     // 对event进行修改和扩展
+          // 事件委托的事件实际是绑定在父级上的,currentTarget是指向element. 需要对currentTarget进行修正,使得看上去事件就像绑定在子节点上,这点很重要!!
+          // liveFired:存储实际绑定事件的元素
           return (autoRemove || callback).apply(match, [evt].concat(slice.call(arguments, 1)))
         }
       }
@@ -231,11 +263,11 @@
     event = (isString(event) || $.isPlainObject(event)) ? $.Event(event) : compatible(event)
     event._args = args
     return this.each(function(){
-      // handle focus(), blur() by calling them directly
-      if (event.type in focus && typeof this[event.type] == "function") this[event.type]()
+      // focus、blur 事件 直接通过 el.focus() el.blur()触发
+      if (event.type in focus && typeof this[event.type] == "function") this[event.type]()  
       // items in the collection might not be DOM elements
-      else if ('dispatchEvent' in this) this.dispatchEvent(event)
-      else $(this).triggerHandler(event, args)
+      else if ('dispatchEvent' in this) this.dispatchEvent(event)   // createEvent => initEvent => dispatchEvent 触发addEventListener绑定的事件
+      else $(this).triggerHandler(event, args)                // 根据event从当前元素的事件数组中筛选出相应的事件并执行 eg: $(".a").trigger("click.b") 从$('.a')所有绑定的事件(handle)中筛选出事件类型为'click',命名空间为'b'的事件并执行
     })
   }
 

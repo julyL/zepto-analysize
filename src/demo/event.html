@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>attr</title>
+    <link rel="stylesheet" href="">
+    <script src="./zepto.js"></script>
+</head>
+
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+    }
+    .box{
+        width:250px;
+        height:250px;
+        background:#47c68c;
+        float:left;
+        margin:10px;
+    }
+    .sub{
+        width:150px;
+        height:150px;
+        background:#c52d6d;
+    }
+</style>
+
+<body>
+    <div class="box demo1">
+        <div class="sub">直接绑定事件</div>
+    </div>
+
+    <div class="box demo2">
+        <div class="sub">事件委托</div>
+    </div>
+
+    <div class="box demo3">
+        <div class="sub">执行event.stopImmediatePropagation</div>
+    </div>
+
+    <div class="box demo4">
+        <div class="sub">trigger 事件</div>
+    </div>
+
+    <div class="box demo5">
+        <div class="sub">off 事件</div>
+    </div>
+
+    <script>
+        var parent1 = $(".demo1"),
+            parent2 = $(".demo2"),
+            parent3 = $(".demo3"),
+            parent4 = $(".demo4"),
+            parent3 = $(".demo3"),
+            child1 = $(".demo1 .sub"),
+            child2 = $(".demo2 .sub"),
+            child3 = $(".demo3 .sub"),
+            child4 = $(".demo4 .sub"),
+            child5 = $(".demo5 .sub"),
+            child6 = $(".demo6 .sub");
+        
+        function handle(event){
+            console.log('excute handle,event:',event);
+        }
+        function handle1(event){
+            console.log('excute handle1,event:',event);
+            event.stopImmediatePropagation();
+        }
+
+        // parent1.on("click",handle);
+
+
+        // debugger;
+        // parent2.on("click",".sub",handle);
+
+
+        // debugger;
+        // child3.on("click",handle1);
+        // child3.on("click",handle);
+        
+
+        // child4.on("click",handle);
+        // debugger;
+        // child4.trigger("click");
+
+
+        child5.off("click",handle);
+        debugger;
+        child5.off("click");
+
+
+    </script>
+</body>
+</html>
