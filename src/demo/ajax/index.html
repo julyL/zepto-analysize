@@ -1,0 +1,137 @@
+<!DOCTYPE>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>ajax</title>
+    <link rel="stylesheet" href="">
+    <script src="../zepto.js"></script>
+</head>
+<style>
+div{
+    border: 1px solid #ccc;
+    padding: 5px 10px;
+    margin: 20px;
+    color: rebeccapurple;
+    cursor: pointer;
+}
+</style>
+
+<body>
+<h3>debug ajax code</h3>
+    <div class="get">get请求</div>
+    <div class="getdata">get请求带data</div>
+    <div class="post">post请求</div>
+    <div class="postdata">post请求带data</div>
+    <div class="jsonp">jsonp</div>
+    <div class="jsonp-cb">jsonp 设置回调名称</div>
+    <div class="jsonp-timeout">jsonp 设置超时</div>
+</body>
+<script>
+var q = document.querySelector.bind(document);
+
+q('.get').onclick = function() {
+
+    $.ajax({
+        type: "get",
+        url: "http://localhost:4004/get",
+        success: function(d) {
+            console.log(d)
+        }
+    })
+}
+
+q('.getdata').onclick = function() {
+	// debugger;
+    $.ajax({
+        type: "get",
+        url: "http://localhost:4004/getdata",
+        data: {
+            name: "lb",
+            arr:[2,3,4],
+            info:{
+                age:24
+            }
+        },
+        success: function(d) {
+            console.log(d)
+        }
+    })
+}
+
+q('.post').onclick = function() {
+	// debugger;
+    $.ajax({
+        type: "post",
+        url: "http://localhost:4004/post",
+        success: function(d) {
+            console.log(d)
+        }
+    })
+}
+
+q('.postdata').onclick = function() {
+	// debugger;
+    $.ajax({
+        type: "post",
+        url: "http://localhost:4004/postdata",
+        data: {
+            name: "libo"
+        },
+        success: function(d) {
+            console.log(d)
+        }
+    })
+}
+
+q('.jsonp').onclick = function() {
+	// debugger;
+    $.ajax({
+        type: "get",
+        dataType:"jsonp",
+        timeout:1000,
+        url: "http://localhost:4004/jsonp",
+        success:function(d){
+            console.log('success:',d);
+        }
+    })
+}
+
+q('.jsonp-cb').onclick = function() {
+	// debugger;
+    $.ajax({
+        type: "get",
+        dataType:"jsonp",
+        jsonpCallback:"Callback",
+        url: "http://localhost:4004/jsonp",
+        success:function(d){
+            console.log('success:',d);
+        }
+    })
+}
+
+q('.jsonp-timeout').onclick = function() {
+	// debugger;
+    $.ajax({
+        type: "get",
+        dataType:"jsonp",
+        timeout:1000,
+        jsonpCallback:"Callback",
+        url: "http://localhost:4004/jsonp",
+        success:function(d){
+            console.log('success:',d);
+        },
+        error:function(){
+            console.log('请求超时');
+        }
+    })
+}
+
+function Callback(d){
+	console.log('i am not jsonp callback:',d)
+}
+
+
+</script>
+
+</html>

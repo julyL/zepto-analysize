@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title></title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+    </head>
+    <body>
+    <script>
+        'use strict';
+        (function(){
+            console.log(this);  
+            console.log(eval('this'));    //直接执行eval, this指向当前闭包
+            console.log((1,eval)('this'));  // 间接执行eval,this指向全局
+        })();
+    </script>
+    </body>
+</html>

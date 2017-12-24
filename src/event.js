@@ -54,11 +54,12 @@
     return hover[type] || (focusinSupported && focus[type]) || type
   }
   /*
+   handlers里面存储了用zepto绑定的所有事件  
    handlers = [
-      1:  [handler1,handler2...],   // handers的key由element决定,同一个element所绑定的所有事件都会放在一个数组里面   
+      1:  [handler1,handler2...],   // handers的key为element._zid(zepto添加的用于区分element的属性),val为一个数组,同一个element所绑定的所有事件都会放在这个数组里面   
       2:  [handler...]
    ]
-   handle={
+   handle = {
      del: 委托的事件,
      e: 事件名,
      fn: 绑定的事件,
@@ -71,7 +72,7 @@
   */
   function add(element, events, fn, data, selector, delegator, capture){
     var id = zid(element), set = (handlers[id] || (handlers[id] = []))   // 同一个element的所绑定的事件都会放在同一个数组
-    events.split(/\s/).forEach(function(event){     // 支持"click keydown"同时绑定多个事件
+    events.split(/\s/).forEach(function(event){     // 支持空格分隔的方式同时绑定多个事件 "click keydown"
       if (event == 'ready') return $(document).ready(fn)
       var handler   = parse(event)  // 解析出事件名和命名空间
       handler.fn    = fn            // 绑定的事件
@@ -84,12 +85,14 @@
       }
       handler.del   = delegator           // 事件委托触发的事件
       var callback  = delegator || fn
+
+      // 实际用addEventLister绑定的事件
       handler.proxy = function(e){        // 对绑定事件的事件进行了代理
         e = compatible(e)                 // 对原生event对象进行了扩展,使其支持isDefaultPrevented等方法
         if (e.isImmediatePropagationStopped()) return  // 
         e.data = data
-        var result = callback.apply(element, e._args == undefined ? [e] : [e].concat(e._args))
-        if (result === false) e.preventDefault(), e.stopPropagation()
+        var result = callback.apply(element, e._args == undefined ? [e] : [e].concat(e._args))    // 事件触发时的回调
+        if (result === false) e.preventDefault(), e.stopPropagation()  // 原生事件回调如果返回true,会阻止事件冒泡和默认行为。zepto的Event模块只是扩展了原生事件，行为上保持一致(所以这里模拟了原生事件的处理方法)
         return result
       }
       handler.i = set.length
@@ -99,6 +102,7 @@
         element.addEventListener(realEvent(handler.e), handler.proxy, eventCapture(handler, capture));  
     })
   }
+  // 从handler[element._zid]查找出需要删除的handle. 从handler[element._zid]中删除并移除事件
   function remove(element, events, fn, selector, capture){
     var id = zid(element)
     ;(events || '').split(/\s/).forEach(function(event){
@@ -226,13 +230,13 @@
         remove(element, e.type, callback)
         return callback.apply(this, arguments)
       }
-      // 事件委托: 将子节点的事件委托给父节点处理。当父节点触发事件时,父节点会根据e.target找到事件相应的处理函数(触发相应的子节点绑定的事件)       
+      // 事件委托: 将子节点的事件委托给父节点处理。当父节点触发事件时,父节点会根据e.target找到事件相应的处理函数执行(采用事件委托和直接将事件绑定在子节点上,2者触发事件时的处理效果应完成一致)       
       if (selector) delegator = function(e){ 
         var evt, match = $(e.target).closest(selector, element).get(0)    // 从e.target向上查找selector元素(必须是当前element的子节点) 也就是进行事件委托的元素
         if (match && match !== element) {
           evt = $.extend(createProxy(e), {currentTarget: match, liveFired: element})     // 对event进行修改和扩展
-          // 事件委托的事件实际是绑定在父级上的,currentTarget是指向element. 需要对currentTarget进行修正,使得看上去事件就像绑定在子节点上,这点很重要!!
-          // liveFired:存储实际绑定事件的元素
+          // 事件委托的事件实际是绑定在父级上的,currentTarget是指向父级的. 需要对currentTarget进行修正,使得看上去事件就像绑定在子节点上,这点很重要!!
+          // liveFired:存储实际绑定事件的元素(父级)
           return (autoRemove || callback).apply(match, [evt].concat(slice.call(arguments, 1)))
         }
       }
@@ -273,6 +277,7 @@
 
   // triggers event handlers on current element just as if an event occurred,
   // doesn't trigger an actual event, doesn't bubble
+  // 用于当前环境不支持dispatchEvent触发事件时,模拟事件触发(就是找到事件触发时回调并执行而已,但不会向上冒泡。原生dispatchEvent是会向上冒泡的)
   $.fn.triggerHandler = function(event, args){
     var e, result
     this.each(function(i, element){
