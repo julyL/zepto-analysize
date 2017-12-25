@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>mouseEvent</title>
+    <link rel="stylesheet" href="">
+    <script src="../zepto.js"></script>
+</head>
+
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+    }
+
+    .box {
+        width: 250px;
+        height: 250px;
+        background: #47c68c;
+        float: left;
+        margin: 10px;
+    }
+
+    .sub {
+        width: 150px;
+        height: 150px;
+        background: #c52d6d;
+    }
+</style>
+
+<body>
+    <div class="box demo1">
+        <div class="sub">mouseenter不会冒泡</div>
+    </div>
+
+    <div class="box demo2">
+        <div class="sub">mouseover会冒泡</div>
+    </div>
+
+    <div class="box demo3">
+        <div class="sub">mouseleave不会冒泡</div>
+    </div>
+
+    <div class="box demo4">
+        <div class="sub">mouseout会冒泡</div>
+    </div>
+
+
+    <script>
+        var parent1 = $(".demo1"),
+            parent2 = $(".demo2"),
+            parent3 = $(".demo3"),
+            parent4 = $(".demo4"),
+            parent3 = $(".demo3"),
+            child1 = $(".demo1 .sub"),
+            child2 = $(".demo2 .sub"),
+            child3 = $(".demo3 .sub"),
+            child4 = $(".demo4 .sub"),
+            child5 = $(".demo5 .sub"),
+            child6 = $(".demo6 .sub");
+
+        function handle(event) {
+            console.log(event.type,event.currentTarget);
+        }
+        child1[0].addEventListener("mouseenter",handle,false);
+        parent1[0].addEventListener("mouseenter",handle,false);
+
+        child2[0].addEventListener("mouseover",handle,false);
+        parent2[0].addEventListener("mouseover",handle,false);
+        
+        child3[0].addEventListener("mouseleave",handle,false);
+        parent3[0].addEventListener("mouseleave",handle,false);
+        
+        child4[0].addEventListener("mouseout",handle,false);
+        parent4[0].addEventListener("mouseout",handle,false);
+
+    </script>
+</body>
+
+</html>

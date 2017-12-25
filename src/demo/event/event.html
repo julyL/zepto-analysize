@@ -14,17 +14,19 @@
         margin: 0;
         padding: 0;
     }
-    .box{
-        width:250px;
-        height:250px;
-        background:#47c68c;
-        float:left;
-        margin:10px;
+
+    .box {
+        width: 250px;
+        height: 250px;
+        background: #47c68c;
+        float: left;
+        margin: 10px;
     }
-    .sub{
-        width:150px;
-        height:150px;
-        background:#c52d6d;
+
+    .sub {
+        width: 150px;
+        height: 150px;
+        background: #c52d6d;
     }
 </style>
 
@@ -61,12 +63,12 @@
             child4 = $(".demo4 .sub"),
             child5 = $(".demo5 .sub"),
             child6 = $(".demo6 .sub");
-        
-        function handle(event){
-            console.log('excute handle,event:',event);
+
+        function handle(event) {
+            console.log('excute handle,event:', event);
         }
-        function handle1(event){
-            console.log('excute handle1,event:',event);
+        function handle1(event) {
+            console.log('excute handle1,event:', event);
             event.stopImmediatePropagation();
         }
 
@@ -80,18 +82,19 @@
         // debugger;
         // child3.on("click",handle1);
         // child3.on("click",handle);
-        
+
 
         // child4.on("click",handle);
         // debugger;
         // child4.trigger("click");
 
 
-        child5.off("click",handle);
+        child5.off("click", handle);
         debugger;
         child5.off("click");
 
 
     </script>
 </body>
+
 </html>

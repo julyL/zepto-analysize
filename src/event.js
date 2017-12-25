@@ -10,7 +10,8 @@
       handlers = {},
       specialEvents={},
       focusinSupported = 'onfocusin' in window,
-      focus = { focus: 'focusin', blur: 'focusout' },
+      // focus,blur,mouseenter,mouseleave 均不支持冒泡处理,zepto分别采用focusin,focusout,mouseover,mosueout进行模拟(支持冒泡)
+      focus = { focus: 'focusin', blur: 'focusout' },     
       hover = { mouseenter: 'mouseover', mouseleave: 'mouseout' }
 
   specialEvents.click = specialEvents.mousedown = specialEvents.mouseup = specialEvents.mousemove = 'MouseEvents'
@@ -78,21 +79,25 @@
       handler.fn    = fn            // 绑定的事件
       handler.sel   = selector      // 进行事件委托的对象
       // emulate mouseenter, mouseleave
-      if (handler.e in hover) fn = function(e){   // 绑定mouseenter mouseleave事件时的处理
+      if (handler.e in hover) fn = function(e){   // mouseenter mouseleave事件会存在性能问题,用mouseover,mouseout进行模拟
+      // e.relatedTarget 主要用于mouseover和mouseout事件, 返回与事件的目标节点相关的节点
+      // mouseout事件 e.relatedTarget代表离开目标节点时，鼠标指针进入的节点
+      // mousover事件 e.relatedTarget代表进入目标节点时，鼠标指针离开的节点
+      // 对于其他事件,该属性无效。
         var related = e.relatedTarget
-        if (!related || (related !== this && !$.contains(this, related)))
+        if (!related || (related !== this && !$.contains(this, related)))  // mouseover,mouseout事件均会冒泡,以mouseover为例。一个节点A绑定了mouseover事件,只要子级触发了mouseover也会触发A的mouseover事件,这肯定不是我们想要的结果。zepto做了判断只有当离开鼠标离开节点A时才会触发mouseover
           return handler.fn.apply(this, arguments)
       }
-      handler.del   = delegator           // 事件委托触发的事件
+      handler.del   = delegator           // 事件委托触发的事件回调
       var callback  = delegator || fn
 
       // 实际用addEventLister绑定的事件
       handler.proxy = function(e){        // 对绑定事件的事件进行了代理
         e = compatible(e)                 // 对原生event对象进行了扩展,使其支持isDefaultPrevented等方法
-        if (e.isImmediatePropagationStopped()) return  // 
+        if (e.isImmediatePropagationStopped()) return  // 已经执行过event.stopImmediatePropagation() 则不再执行
         e.data = data
         var result = callback.apply(element, e._args == undefined ? [e] : [e].concat(e._args))    // 事件触发时的回调
-        if (result === false) e.preventDefault(), e.stopPropagation()  // 原生事件回调如果返回true,会阻止事件冒泡和默认行为。zepto的Event模块只是扩展了原生事件，行为上保持一致(所以这里模拟了原生事件的处理方法)
+        if (result === false) e.preventDefault(), e.stopPropagation()  // 和原生事件的处理方法保持一致, 原生事件回调如果返回true,会阻止事件冒泡和默认行为。
         return result
       }
       handler.i = set.length
@@ -211,7 +216,7 @@
 
   $.fn.on = function(event, selector, data, callback, one){
     var autoRemove, delegator, $this = this
-    if (event && !isString(event)) {
+    if (event && !isString(event)) {   // event为对象{click:clickHandle,keydown:keydownHandle},则遍历对象进行绑定
       $.each(event, function(type, fn){
         $this.on(type, selector, data, fn, one)
       })
@@ -226,18 +231,19 @@
     if (callback === false) callback = returnFalse
 
     return $this.each(function(_, element){
-      if (one) autoRemove = function(e){
+      if (one) autoRemove = function(e){  // 设置了one:true会在事件第一次触发之后移除该事件
         remove(element, e.type, callback)
         return callback.apply(this, arguments)
       }
-      // 事件委托: 将子节点的事件委托给父节点处理。当父节点触发事件时,父节点会根据e.target找到事件相应的处理函数执行(采用事件委托和直接将事件绑定在子节点上,2者触发事件时的处理效果应完成一致)       
+      // 事件委托: 将子节点的事件委托给父节点处理。当父节点触发事件时,父节点会根据e.target找到事件相应的处理函数执行
+      // 采用事件委托将事件绑定在父节点 和 直接将事件绑定在子节点上,事件回调中的处理不同存在差异性。也就是事件回调中的event.currentTarget和this均指向子节点。   
       if (selector) delegator = function(e){ 
-        var evt, match = $(e.target).closest(selector, element).get(0)    // 从e.target向上查找selector元素(必须是当前element的子节点) 也就是进行事件委托的元素
+        var evt, match = $(e.target).closest(selector, element).get(0)    //进行事件委托的元素: 从e.target向上查找selector元素(必须是当前element的子节点)
         if (match && match !== element) {
           evt = $.extend(createProxy(e), {currentTarget: match, liveFired: element})     // 对event进行修改和扩展
-          // 事件委托的事件实际是绑定在父级上的,currentTarget是指向父级的. 需要对currentTarget进行修正,使得看上去事件就像绑定在子节点上,这点很重要!!
-          // liveFired:存储实际绑定事件的元素(父级)
-          return (autoRemove || callback).apply(match, [evt].concat(slice.call(arguments, 1)))
+          // 事件委托的事件实际是绑定在父级上的,currentTarget是指向父级的. 需要对currentTarget进行修正,使得currentTarget指向进行事件委托的元素
+          // liveFired: 存储实际绑定事件的元素(父级)
+          return (autoRemove || callback).apply(match, [evt].concat(slice.call(arguments, 1)))   // 执行事件回调,回调内部的this指向事件委托的元素
         }
       }
 
@@ -267,23 +273,24 @@
     event = (isString(event) || $.isPlainObject(event)) ? $.Event(event) : compatible(event)
     event._args = args
     return this.each(function(){
-      // focus、blur 事件 直接通过 el.focus() el.blur()触发
+      // focus、blur 事件可以直接通过 el.focus() el.blur()触发
       if (event.type in focus && typeof this[event.type] == "function") this[event.type]()  
       // items in the collection might not be DOM elements
       else if ('dispatchEvent' in this) this.dispatchEvent(event)   // createEvent => initEvent => dispatchEvent 触发addEventListener绑定的事件
-      else $(this).triggerHandler(event, args)                // 根据event从当前元素的事件数组中筛选出相应的事件并执行 eg: $(".a").trigger("click.b") 从$('.a')所有绑定的事件(handle)中筛选出事件类型为'click',命名空间为'b'的事件并执行
+      else $(this).triggerHandler(event, args)                // 用于当前环境不支持dispatchEvent触发事件时,模拟事件触发(就是找到事件触发时回调并执行而已,但不会向上冒泡。原生dispatchEvent是会向上冒泡的)
     })
   }
 
   // triggers event handlers on current element just as if an event occurred,
   // doesn't trigger an actual event, doesn't bubble
-  // 用于当前环境不支持dispatchEvent触发事件时,模拟事件触发(就是找到事件触发时回调并执行而已,但不会向上冒泡。原生dispatchEvent是会向上冒泡的)
+  // 根据event从当前元素的事件数组中筛选出相应的事件并执行 
+  // eg: $(".a").trigger("click.b") 从$('.a')所有绑定的事件(handle)中筛选出事件类型为'click',命名空间为'b'的事件并执行
   $.fn.triggerHandler = function(event, args){
     var e, result
     this.each(function(i, element){
       e = createProxy(isString(event) ? $.Event(event) : event)
       e._args = args
-      e.target = element
+      e.target = element      // 修改e.target, 模拟当前事件是通过操作element触发的
       $.each(findHandlers(element, event.type || event), function(i, handler){
         result = handler.proxy(e)
         if (e.isImmediatePropagationStopped()) return false
@@ -306,8 +313,8 @@
   $.Event = function(type, props) {
     if (!isString(type)) props = type, type = props.type
     var event = document.createEvent(specialEvents[type] || 'Events'), bubbles = true
-    if (props) for (var name in props) (name == 'bubbles') ? (bubbles = !!props[name]) : (event[name] = props[name])
-    event.initEvent(type, bubbles, true)
+    if (props) for (var name in props) (name == 'bubbles') ? (bubbles = !!props[name]) : (event[name] = props[name])   // 将props的键值赋给event对象
+    event.initEvent(type, bubbles, true)   // bubbles: 是否冒泡 必须为boolean类型
     return compatible(event)
   }
 
