@@ -3,6 +3,7 @@
 
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <title>attr</title>
     <link rel="stylesheet" href="">
@@ -71,27 +72,30 @@
             console.log('excute handle1,event:', event);
             event.stopImmediatePropagation();
         }
-
+        // demo1:
         // parent1.on("click",handle);
 
-
+        // demo2:
         // debugger;
         // parent2.on("click",".sub",handle);
 
-
+        // demo3-1:  一个element如果同一个事件类型绑定了多个事件，当其中一个事件执行了stopImmediatePropagation之后,后续事件就不会执行
         // debugger;
         // child3.on("click",handle1);
         // child3.on("click",handle);
 
 
+
+        
+        // demo4-1:
+        // parent4.on("click",handle);
         // child4.on("click",handle);
-        // debugger;
+        // // debugger;
         // child4.trigger("click");
 
-
-        child5.off("click", handle);
-        debugger;
-        child5.off("click");
+        // child5.off("click", handle);
+        // debugger;
+        // child5.off("click");
 
 
     </script>

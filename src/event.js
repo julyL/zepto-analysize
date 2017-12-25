@@ -19,6 +19,9 @@
   function zid(element) {
     return element._zid || (element._zid = _zid++)
   }
+
+  // handlers[element._zid] element绑定的所有事件
+  // 从handler[element._zid]中根据[事件类型,事件命名空间,回调函数,选择器]筛选出handle
   function findHandlers(element, event, fn, selector) {
     event = parse(event)
     if (event.ns) var matcher = matcherFor(event.ns)
@@ -51,7 +54,7 @@
   }
 
   function realEvent(type) {    // 返回事件名
-    // 对mouseenter、mouseleave和 blur、focus 特殊处理
+    // 对mouseenter、mouseleave和 blur、focus 特殊处理    ??
     return hover[type] || (focusinSupported && focus[type]) || type
   }
   /*
@@ -310,12 +313,12 @@
     }
   })
 
+  // 创建一个事件并扩展event对象,主要用于dispatchEvent主动触发事件
   $.Event = function(type, props) {
     if (!isString(type)) props = type, type = props.type
     var event = document.createEvent(specialEvents[type] || 'Events'), bubbles = true
     if (props) for (var name in props) (name == 'bubbles') ? (bubbles = !!props[name]) : (event[name] = props[name])   // 将props的键值赋给event对象
     event.initEvent(type, bubbles, true)   // bubbles: 是否冒泡 必须为boolean类型
-    return compatible(event)
   }
 
 })(Zepto)

@@ -26,7 +26,7 @@
 
   // trigger an Ajax "global" event
   function triggerGlobal(settings, context, eventName, data) {
-    if (settings.global) return triggerAndReturn(context || document, eventName, data)
+    if (settings.global) return triggerAndReturn(context || document, eventName, data)  //是否执行全局的eventName方法 (默认执行)
   }
 
   // Number of active Ajax requests
@@ -42,12 +42,13 @@
   // triggers an extra global event "ajaxBeforeSend" that's like "ajaxSend" but cancelable
   function ajaxBeforeSend(xhr, settings) {
     var context = settings.context
-    if (settings.beforeSend.call(context, xhr, settings) === false ||
+    // 如果当前ajax请求设置的beforeSend回调返回false,或者全局的beforeSend返回false则取消当前ajax
+    if (settings.beforeSend.call(context, xhr, settings) === false ||    
         triggerGlobal(settings, context, 'ajaxBeforeSend', [xhr, settings]) === false)
       return false
-
     triggerGlobal(settings, context, 'ajaxSend', [xhr, settings])
   }
+  // ajaxSuccess,ajaxError, ajaxComplete等全局Ajax方法通常绑定在document上 eg: $(document).on('ajaxBeforeSend'，fn)
   function ajaxSuccess(data, xhr, settings, deferred) {
     var context = settings.context, status = 'success'
     settings.success.call(context, data, status, xhr)
@@ -71,6 +72,7 @@
     ajaxStop(settings)
   }
 
+  // settings.dataFilter用于处理后台返回的数据
   function ajaxDataFilter(data, type, settings) {
     if (settings.dataFilter == empty) return data
     var context = settings.context
@@ -84,10 +86,11 @@
     if (!('type' in options)) return $.ajax(options)
 
     var _callbackName = options.jsonpCallback,
-      callbackName = ($.isFunction(_callbackName) ?
+     // 如果没有设置jsonp的函数回调名(jsonpCallback) 则随机生成一个函数名
+      callbackName = ($.isFunction(_callbackName) ?    
         _callbackName() : _callbackName) || ('Zepto' + (jsonpID++)),
       script = document.createElement('script'),
-      originalCallback = window[callbackName],
+      originalCallback = window[callbackName],  // 存储全局变量callbackName,因为zepto会对callbackName进行重写
       responseData,
       abort = function(errorType) {
         $(script).triggerHandler('error', errorType || 'abort')
@@ -96,19 +99,24 @@
 
     if (deferred) deferred.promise(xhr)
 
+    // jsonp请求后台返回的script格式: /**/ typeof Zepto1498211087464 === 'function' && Zepto1498211087464({"testType":"jsonp"});
     $(script).on('load error', function(e, errorType){
       clearTimeout(abortTimeout)
-      $(script).off().remove()
+      $(script).off().remove()   // 不管load或者error 都直接把之前jsonp插入的script从页面中remove  注: jsonp插入的代码会在 (appendChild script插入之后,load回调执行之前)执行
 
-      if (e.type == 'error' || !responseData) {
+      if (e.type == 'error' || !responseData) {  
+        // resopnseData不存在分2中情况
+        // 1.后台没有返回的responseData有问题 (后台问题)
+        // 2.由于window[callbackName]是挂载在全局window对象上的。如果在发起jsonp请求之后window[callbackName]被重写了,导致responseData没有被赋值
         ajaxError(null, errorType || 'error', xhr, options, deferred)
       } else {
-        ajaxSuccess(responseData[0], xhr, options, deferred)
+        ajaxSuccess(responseData[0], xhr, options, deferred)  // 执行成功回调(通过ajax的success设置)
+        // responseData[0]为后台向回调函数中传入的参数
       }
 
-      window[callbackName] = originalCallback
-      if (responseData && $.isFunction(originalCallback))
-        originalCallback(responseData[0])
+      window[callbackName] = originalCallback // 重置window[callbackName]
+      if (responseData && $.isFunction(originalCallback))  
+        originalCallback(responseData[0])   // 执行jsonpCallback对应的回调函数
 
       originalCallback = responseData = undefined
     })
@@ -117,12 +125,12 @@
       abort('abort')
       return xhr
     }
-
-    window[callbackName] = function(){
-      responseData = arguments
+    // 重写callbackName主要是为了设置responseData,从而根据responseData判断jsonp请求的有效性。
+    window[callbackName] = function(){   // 后台响应jsonp请求时会返回一段script代码。代码中会执行callbackName,并传入数据
+      responseData = arguments     // 存储后台返回的数据       
     }
-
-    script.src = options.url.replace(/\?(.+)=\?/, '?$1=' + callbackName)
+    // "http://localhost:4004/jsonp?_=1514116452315&callback=?" => http://localhost:4004/jsonp?_=1514116452315&callback=Callback
+    script.src = options.url.replace(/\?(.+)=\?/, '?$1=' + callbackName)          //设置回调函数名
     document.head.appendChild(script)
 
     if (options.timeout > 0) abortTimeout = setTimeout(function(){
@@ -184,25 +192,28 @@
 
   function appendQuery(url, query) {
     if (query == '') return url
-    return (url + '&' + query).replace(/[&?]{1,2}/, '?')
+    return (url + '&' + query).replace(/[&?]{1,2}/, '?')  
   }
 
   // serialize payload and append it to the URL for GET requests
   function serializeData(options) {
     if (options.processData && options.data && $.type(options.data) != "string")
+     //格式化data    {key1:val1,key2:val2} ==> "key1=val1&key2=val2"
       options.data = $.param(options.data, options.traditional)
+    // 只有当data存在并且请求为get(jsonp就是get请求),才会将序列化之后的data添加到url中
     if (options.data && (!options.type || options.type.toUpperCase() == 'GET' || 'jsonp' == options.dataType))
       options.url = appendQuery(options.url, options.data), options.data = undefined
   }
 
   $.ajax = function(options){
-    var settings = $.extend({}, options || {}),
+    var settings = $.extend({}, options || {}),   // 浅拷贝options
         deferred = $.Deferred && $.Deferred(),
         urlAnchor, hashIndex
-    for (key in $.ajaxSettings) if (settings[key] === undefined) settings[key] = $.ajaxSettings[key]
+    for (key in $.ajaxSettings) if (settings[key] === undefined) settings[key] = $.ajaxSettings[key]     // options没有设置的key采用$.ajaxSettings的默认值
 
-    ajaxStart(settings)
-
+    ajaxStart(settings)     // 如果设置了ajax全局触发(setting.gobal=true),则触发document.trigger("ajaxStart")
+    
+    // 默认crossDomain=false,会检测是否跨域
     if (!settings.crossDomain) {
       urlAnchor = document.createElement('a')
       urlAnchor.href = settings.url
@@ -212,12 +223,13 @@
     }
 
     if (!settings.url) settings.url = window.location.toString()
-    if ((hashIndex = settings.url.indexOf('#')) > -1) settings.url = settings.url.slice(0, hashIndex)
+    if ((hashIndex = settings.url.indexOf('#')) > -1) settings.url = settings.url.slice(0, hashIndex)   // 从url中去除#后面的字符(包括#)
     serializeData(settings)
 
     var dataType = settings.dataType, hasPlaceholder = /\?.+=\?/.test(settings.url)
     if (hasPlaceholder) dataType = 'jsonp'
-
+    // 如果设置去缓存cache=false,则在请求链接后面添加时间戳后缀 
+    // get,post请求默认cache=true ,请求script默认cahce=false
     if (settings.cache === false || (
          (!options || options.cache !== true) &&
          ('script' == dataType || 'jsonp' == dataType)
@@ -228,6 +240,7 @@
       if (!hasPlaceholder)
         settings.url = appendQuery(settings.url,
           settings.jsonp ? (settings.jsonp + '=?') : settings.jsonp === false ? '' : 'callback=?')
+        // eg: http://localhost:4004/jsonp?_=1514114784835&callback=?
       return $.ajaxJSONP(settings, deferred)
     }
 
@@ -255,11 +268,11 @@
 
     xhr.onreadystatechange = function(){
       if (xhr.readyState == 4) {
-        xhr.onreadystatechange = empty
-        clearTimeout(abortTimeout)
+        xhr.onreadystatechange = empty      // 内存释放
+        clearTimeout(abortTimeout)    // 因为在设置超时定时器之前执行了onreadystatechange回调,需要清理之前的超时定时器
         var result, error = false
         if ((xhr.status >= 200 && xhr.status < 300) || xhr.status == 304 || (xhr.status == 0 && protocol == 'file:')) {
-          dataType = dataType || mimeToDataType(settings.mimeType || xhr.getResponseHeader('content-type'))
+          dataType = dataType || mimeToDataType(settings.mimeType || xhr.getResponseHeader('content-type'))  // 根据mimeType设置或者从后台返回的header中读取 解析数据的方式
 
           if (xhr.responseType == 'arraybuffer' || xhr.responseType == 'blob')
             result = xhr.response
@@ -269,8 +282,10 @@
             try {
               // http://perfectionkills.com/global-eval-what-are-the-options/
               // sanitize response accordingly if data filter callback provided
-              result = ajaxDataFilter(result, dataType, settings)
-              if (dataType == 'script')    (1,eval)(result)
+              result = ajaxDataFilter(result, dataType, settings)   // 设置settings.dataFilter方法对返回数据进行过滤。默认不过滤
+              if (dataType == 'script')    (1,eval)(result)  // 在全局环境下执行script的内容
+             // 补充eval知识: (1,eval)('this') 方式调用eval属于间接调用,括号中的内容是在全局环境下执行的,所以返回的this是全局的。
+             // 直接执行eval('this') 括号中的内容是在当前闭包中执行的,在严格模式下,函数内部的this会为undefined。
               else if (dataType == 'xml')  result = xhr.responseXML
               else if (dataType == 'json') result = blankRE.test(result) ? null : $.parseJSON(result)
             } catch (e) { error = e }
@@ -298,6 +313,7 @@
 
     for (name in headers) nativeSetHeader.apply(xhr, headers[name])
 
+    // 如果设置了请求超时,则设置一个定时器abortTimeout
     if (settings.timeout > 0) abortTimeout = setTimeout(function(){
         xhr.onreadystatechange = empty
         xhr.abort()
@@ -311,8 +327,8 @@
 
   // handle optional data/success arguments
   function parseArguments(url, data, success, dataType) {
-    if ($.isFunction(data)) dataType = success, success = data, data = undefined
-    if (!$.isFunction(success)) dataType = success, success = undefined
+    if ($.isFunction(data)) dataType = success, success = data, data = undefined  
+    if (!$.isFunction(success)) dataType = success, success = undefined  
     return {
       url: url
     , data: data
@@ -364,7 +380,7 @@
       // handle data in serializeArray() format
       if (!scope && array) params.add(value.name, value.value)
       // recurse into nested objects
-      else if (type == "array" || (!traditional && type == "object"))
+      else if (type == "array" || (!traditional && type == "object"))  // 如果value为引用类型(数组or对象),进行递归处理。处理之后的键值都会以字符串的形式push到params中
         serialize(params, value, traditional, key)
       else params.add(key, value)
     })
@@ -374,10 +390,10 @@
     var params = []
     params.add = function(key, value) {
       if ($.isFunction(value)) value = value()
-      if (value == null) value = ""
-      this.push(escape(key) + '=' + escape(value))
+      if (value == null) value = ""         // 如果值为null或者undefined,则处理为空字符
+      this.push(escape(key) + '=' + escape(value))  // 对键值进行escape编码处理
     }
     serialize(params, obj, traditional)
-    return params.join('&').replace(/%20/g, '+')
+    return params.join('&').replace(/%20/g, '+')    // 将空格的编码替换为"+"
   }
 })(Zepto)
